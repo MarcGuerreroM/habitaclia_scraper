@@ -1,7 +1,8 @@
 # coding=utf-8
 import requests
 from bs4 import BeautifulSoup
-
+import pandas as pd
+cat_provinces = ["barcelona", "lleida", "tarragona", "girona"]
 def get_website(url):
     '''
     Gets the website
@@ -49,11 +50,62 @@ def get_info(page):
         if success:
             info.append(dic)
     return info
+def check_page_exists(url):
+    '''
+    Checks if the page exists
+    :param url: page to check
+    :return: True if exists, otherwise False
+    '''
+    main_page = requests.get(url)
+    if main_page.status_code == 200:
+        soup = BeautifulSoup(main_page.content, features="html.parser")
+        # print(soup.prettify())
+        no_result = soup.find("div", {"class": "list-no-result-title"})
+        if no_result == None:
+            return True
+        else:
+            return False
+    else:
+        return False
+def get_available_pages(url):
+    '''
+    Gets all available web pages from an url in habitaclia
+    :param url: main url
+    :return: list with other url including the main url
+    '''
+    first_url = url
+    pages = []
+    stop = False
+    counter = 1
+    while(not stop):
+        if (check_page_exists(url)):
+            pages.append(url)
+            url = first_url.split(".htm")
+            new_url = url[0] +str("-") + str(counter) + ".htm"
+            url = new_url
+            counter += 1
+        else:
+            stop = True
+    return pages
+
+
+
 if __name__ == "__main__":
     url = "https://www.habitaclia.com/viviendas-en-valles_oriental.htm"
-    main_page = get_website(url)
-    encoding = main_page.encoding if 'charset' in main_page.headers.get('content-type', '').lower() else None
-    soup = BeautifulSoup(main_page.content, from_encoding=encoding)
-    info = get_info(soup)
-    for i in info:
-        print i
+    info = []
+    available_pages = get_available_pages(url)
+    df = pd.DataFrame(columns=['TITLE','LOCATION', 'SURFACE', 'N_BATHROOMS', 'PRICE_METER', 'TOTAL_PRICE', 'LINK'])
+    for page in available_pages:
+        main_page = get_website(page)
+        encoding = main_page.encoding if 'charset' in main_page.headers.get('content-type', '').lower() else None
+        soup = BeautifulSoup(main_page.content, from_encoding=encoding, features="html.parser")
+        partial_info = get_info(soup)
+        for i in partial_info:
+            info.append(i)
+    for item in info:
+        df = df.append({'TITLE': item['title'].encode('utf-8'),'LOCATION': item['location'].encode('utf-8'), 'SURFACE': item['surface'],
+                        'N_BATHROOMS': item['n_bathrooms'],'PRICE_METER': item['price_meter'],'TOTAL_PRICE': item['total_price'],
+                        'LINK': item['link'].encode('utf-8')}, ignore_index=True)
+    print(df)
+    df.to_csv("habitaclia_dataset.csv")
+
