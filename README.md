@@ -13,7 +13,7 @@ Les llibreries que són requerides per l'execució del codi són les següents:
   - pandas
   
 ## Fitxers de codi.
-_main.py_: Únic fitxer i punt d'entrada al programa.
+_src/main.py_: Únic fitxer i punt d'entrada al programa.
 
 ## Rerferències
 1. Mitchel, R. (2015). _Web Scraping with Python: Collecting Data from the Modern Web_. O'Reilly Media, Inc.
