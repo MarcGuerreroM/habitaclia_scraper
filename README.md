@@ -6,7 +6,7 @@ Aquest repositori és la solució a la pràctica 1 de l'assignatura Tipologia i 
 ## Membres de l'equip
 Aquesta activitat ha estat realitzada de forma individual per **Marc Guerrero Molero**.
 
-#Requeriments
+##Requeriments
 The libraries that must be installed before the execution are:
   - requests
   - bs4
