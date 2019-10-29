@@ -2,6 +2,7 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+
 cat_provinces = ["barcelona", "lleida", "tarragona", "girona"]
 def get_website(url):
     '''
@@ -34,10 +35,11 @@ def get_info(page):
         dic = dict()
         dic['title'] = child.a['title']
         dic['link'] = child.a.get('href')
-        dic['location'] = child.find("p", {"class": "list-item-location"}).span.string
+        dic['town'] = child.find("p", {"class": "list-item-location"}).span.string
         l = child.find("p", {"class": "list-item-feature"}).get_text().split("-")
         try:
             dic['surface'] = int(l[0].split('m2')[0])
+            dic['rooms'] = int(l[1].split('habitaciones')[0])
             dic['n_bathrooms'] = int(l[2].encode('UTF-8').split('baño')[0])
             precio_metro_aux = l[3].encode('UTF-8').split("€")[0].split('.')
             dic['price_meter'] = int(str(precio_metro_aux[0]) + str(precio_metro_aux[1]))
@@ -87,25 +89,67 @@ def get_available_pages(url):
         else:
             stop = True
     return pages
+def get_provinces_url(hab_url, provinces):
+    '''
 
+    :param hab_url:
+    :param provinces:
+    :return:
+    '''
+    provinces_url = []
+    for province in provinces:
+        string_to_add = "/comprar-vivienda-en-" + str(province) +"/buscador.htm"
+        provinces_url.append([province, hab_url + string_to_add])
+    return provinces_url
 
+def get_regions_urls(url):
+    '''
+
+    :param url:
+    :param province:
+    :return:
+    '''
+    page = requests.get(url)
+    final_urls = []
+    if page.status_code == 200:
+        soup = BeautifulSoup(page.content, features="html.parser")
+        #print(soup.prettify())
+        divs = soup.find("ul", {"class": "verticalul"}).find_all("li")
+        for div in divs:
+            url_to_append = div.a.get('href').split('/')
+            region = url_to_append[3].split("-")[-1]
+            region_link = "viviendas-en-" + region
+            url_to_append = url_to_append[0] + '//' + url_to_append[2] + "/" + region_link + ".htm"
+            final_urls.append([region, url_to_append])
+        return final_urls
 
 if __name__ == "__main__":
-    url = "https://www.habitaclia.com/viviendas-en-valles_oriental.htm"
-    info = []
-    available_pages = get_available_pages(url)
-    df = pd.DataFrame(columns=['TITLE','LOCATION', 'SURFACE', 'N_BATHROOMS', 'PRICE_METER', 'TOTAL_PRICE', 'LINK'])
-    for page in available_pages:
-        main_page = get_website(page)
-        encoding = main_page.encoding if 'charset' in main_page.headers.get('content-type', '').lower() else None
-        soup = BeautifulSoup(main_page.content, from_encoding=encoding, features="html.parser")
-        partial_info = get_info(soup)
-        for i in partial_info:
-            info.append(i)
-    for item in info:
-        df = df.append({'TITLE': item['title'].encode('utf-8'),'LOCATION': item['location'].encode('utf-8'), 'SURFACE': item['surface'],
-                        'N_BATHROOMS': item['n_bathrooms'],'PRICE_METER': item['price_meter'],'TOTAL_PRICE': item['total_price'],
-                        'LINK': item['link'].encode('utf-8')}, ignore_index=True)
-    print(df)
-    df.to_csv("habitaclia_dataset.csv")
+    url = "https://www.habitaclia.com"
+    first = True
+
+    provinces_urls = get_provinces_url(url, cat_provinces)
+    for province_url in provinces_urls:
+        regions = get_regions_urls(province_url[1])
+        for region in regions:
+            available_pages = get_available_pages(region[1])
+            info = []
+            df = pd.DataFrame(columns=['TITLE','TOWN', 'PROVINCE', 'REGION','SURFACE', 'N_ROOMS', 'N_BATHROOMS', 'PRICE_METER', 'TOTAL_PRICE', 'LINK'])
+            for page in available_pages:
+                main_page = get_website(page)
+                encoding = main_page.encoding if 'charset' in main_page.headers.get('content-type', '').lower() else None
+                soup = BeautifulSoup(main_page.content, from_encoding=encoding, features="html.parser")
+                partial_info = get_info(soup)
+                for p_info in partial_info:
+                    info.append(p_info)
+            for item in info:
+                df = df.append({'TITLE': item['title'].encode('utf-8'),'TOWN': item['town'].encode('utf-8'),'PROVINCE': province_url[0], 'REGION': region[0], 'SURFACE': item['surface'],
+                                'N_ROOMS':item['rooms'],'N_BATHROOMS': item['n_bathrooms'],'PRICE_METER': item['price_meter'],'TOTAL_PRICE': item['total_price'],
+                                'LINK': item['link'].encode('utf-8')}, ignore_index=True)
+            print(df)
+            #only header when it is the first time
+            if first:
+                df.to_csv("habitaclia_dataset.csv", mode='wb', header=True, index=False)
+                first = False
+            else:
+                df.to_csv("habitaclia_dataset.csv", mode='ab', header=False, index=False)
 
