@@ -7,7 +7,7 @@ Aquest repositori és la solució a la pràctica 1 de l'assignatura Tipologia i 
 Aquesta activitat ha estat realitzada de forma individual per **Marc Guerrero Molero**.
 
 ## Requeriments
-The libraries that must be installed before the execution are:
+Les llibreries que són requerides per l'execució del codi són les següents:
   - requests
   - bs4
   - pandas
