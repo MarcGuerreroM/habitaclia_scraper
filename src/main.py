@@ -1,3 +1,6 @@
+'''
+Builds a dataset from habitaclia website
+'''
 # coding=utf-8
 import requests
 from bs4 import BeautifulSoup
@@ -91,10 +94,10 @@ def get_available_pages(url):
     return pages
 def get_provinces_url(hab_url, provinces):
     '''
-
-    :param hab_url:
-    :param provinces:
-    :return:
+    Gets all provinces url from hab_url
+    :param hab_url: url
+    :param provinces: province
+    :return: list with tupples containing the url and the province
     '''
     provinces_url = []
     for province in provinces:
@@ -104,10 +107,9 @@ def get_provinces_url(hab_url, provinces):
 
 def get_regions_urls(url):
     '''
-
-    :param url:
-    :param province:
-    :return:
+    Gets all regions url from provinces region
+    :param url: url from the province
+    :return: list with tupples containing the url and the region
     '''
     page = requests.get(url)
     final_urls = []

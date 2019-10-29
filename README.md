@@ -6,6 +6,12 @@ Aquest repositori és la solució a la pràctica 1 de l'assignatura Tipologia i 
 ## Membres de l'equip
 Aquesta activitat ha estat realitzada de forma individual per **Marc Guerrero Molero**.
 
+#Requeriments
+The libraries that must be installed before the execution are:
+  - requests
+  - bs4
+  - pandas
+  
 ## Fitxers de codi.
 _main.py_: Únic fitxer i punt d'entrada al programa.
 
