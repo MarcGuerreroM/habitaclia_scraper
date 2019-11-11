@@ -1,30 +1,109 @@
+# coding=utf-8
 '''
 Builds a dataset from habitaclia website
 '''
-# coding=utf-8
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import numpy as np
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+
 
 cat_provinces = ["barcelona", "lleida", "tarragona", "girona"]
+def adapt_title_to_img_title(img_title):
+    '''
+    Remplaces problematic caracters in the title
+    :param title: title
+    :return: title with remplacements
+    '''
+    try:
+        img_title = img_title.encode('utf8', 'replace').replace(" ", "_").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace(",", "_").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace(".", "_").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("?", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("-", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf-8').replace("º", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("/", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("\\", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("á", "a").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("é", "e").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("à", "a").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("è", "e").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("í", "i").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("ó", "o").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("ú", "u").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("ü", "u").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("ï", "i").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("\'", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("*'", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("!'", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("\\r", "").encode('utf8', 'replace')
+        img_title = img_title.encode('utf8', 'replace').replace("\\n", "").encode('utf8', 'replace')
+
+    except Exception as e:
+        print(e)
+        return -1
+
+    return img_title
 def get_website(url):
     '''
     Gets the website
     :param url: website's url to get
     :return: if success: request object containing the web result otherwise: -1
     '''
-    main_page = requests.get(url)
-    if main_page.status_code == 200:
-        return main_page
-    else:
+    try:
+        main_page = requests.get(url)
+        if main_page.status_code == 200:
+            return main_page
+        else:
+            return -1
+    except:
         return -1
-def get_sub_websites_link(main_page):
+def get_img(page, info):
     '''
-    Returns the link of every house in the page
-    :param main_page: main page to extract the links
-    :return: a list with the links
+    Includes the corresponding first link img into the dictionary and it is download into img folder
+    :param page: page to extract the img from
+    :param info: list of dictionaries
+    :return: the same list with dictionaries modified
     '''
-    pass
+    divs = page.findAll("div", {"class": "list-item"})
+    for i in divs:
+        path = None
+        src = i.img['src']
+        img_title = i.img['title']
+        index = 0
+        index_item = -1
+        stop = False
+        while(index < len(info) and not stop):
+            if info[index]['title'].replace(" ","") == img_title.replace(" ",""):
+                try:
+                    if src.find("http:") != -1 or src.find("https:") != -1:
+                        r = requests.get(src, stream=True)
+                    else:
+                        r = requests.get("http:" + src, stream=True)
+                    if r.status_code == 200:
+                        img_title = adapt_title_to_img_title(img_title.encode('utf8', 'replace'))
+                        if img_title != -1:
+                            path = "../img/" + img_title.encode("UTF-8") + ".jpg"
+                            output = open(path, "wb")
+                            for chunk in r:
+                                output.write(chunk)
+                            output.close()
+                            index_item = index
+                except Exception as e:
+                    print(e)
+                stop = True
+            index += 1
+        if index_item != -1:
+            info[index_item]['img'] = path
+        else:
+            pass
+    for dic in info:
+        if 'img' not in dic:
+            dic['img'] = np.nan
+    return info
 def get_info(page):
     '''
     Gets the imporant info from the page
@@ -33,6 +112,7 @@ def get_info(page):
     '''
     info = []
     divs = page.findAll("div", {"class": "list-item-info"})
+    #print(page.prettify())
     for child in divs:
         success = 1
         dic = dict()
@@ -41,19 +121,43 @@ def get_info(page):
         dic['town'] = child.find("p", {"class": "list-item-location"}).span.string
         l = child.find("p", {"class": "list-item-feature"}).get_text().split("-")
         try:
-            dic['surface'] = int(l[0].split('m2')[0])
-            dic['rooms'] = int(l[1].split('habitaciones')[0])
+            surface_aux = l[0].split('m2')[0].split(".")
+            if len(surface_aux) > 1:
+                # it means that is more than 1.000
+                aux = ""
+                for i in surface_aux:
+                    aux += str(i)
+                dic['surface'] = int(aux)
+            elif len(surface_aux) == 1:
+                dic['surface'] = int(str(surface_aux[0]))
+            dic['rooms'] = int(l[1].split('habitacion')[0])
             dic['n_bathrooms'] = int(l[2].encode('UTF-8').split('baño')[0])
             precio_metro_aux = l[3].encode('UTF-8').split("€")[0].split('.')
-            dic['price_meter'] = int(str(precio_metro_aux[0]) + str(precio_metro_aux[1]))
-
-            precio_total_aux = child.find("span", {"itemprop": "price"}).string.split(".")
-            dic['total_price'] = int(str(precio_total_aux[0]) + str(precio_total_aux[1].split(" ")[0]))
-        except:
-            #it means that it does not have all features -> it is discarted
+            if len(precio_metro_aux) > 1:
+                #it means that is more than 1.000
+                aux = ""
+                for i in precio_metro_aux:
+                    aux += str(i)
+                dic['price_meter'] = int(aux)
+            elif len(precio_metro_aux) == 1:
+                dic['price_meter'] = int(str(precio_metro_aux[0]))
+            precio_total_aux = child.find("span", {"itemprop": "price"}).string.encode('UTF-8').split("€")[0].split('.')
+            if len(precio_total_aux) > 1:
+                #it means that is more than 1.000
+                aux = ""
+                for i in precio_total_aux:
+                    aux += str(i)
+                dic['total_price'] = int(aux)
+            elif len(precio_total_aux) == 1:
+                dic['total_price'] = int(str(precio_total_aux[0]))
+        except Exception as e:
+            print(e)
             success = 0
         if success:
+            #it is not an advertisment
             info.append(dic)
+    if len(info) > 0:
+        info = get_img(page, info)
     return info
 def check_page_exists(url):
     '''
@@ -135,7 +239,7 @@ if __name__ == "__main__":
         for region in regions:
             available_pages = get_available_pages(region[1])
             info = []
-            df = pd.DataFrame(columns=['TITLE','TOWN', 'PROVINCE', 'REGION','SURFACE', 'N_ROOMS', 'N_BATHROOMS', 'PRICE_METER', 'TOTAL_PRICE', 'LINK'])
+            df = pd.DataFrame(columns=['TITLE','TOWN', 'PROVINCE', 'REGION','SURFACE', 'N_ROOMS', 'N_BATHROOMS', 'PRICE_METER', 'TOTAL_PRICE', 'LINK', 'IMG'])
             for page in available_pages:
                 main_page = get_website(page)
                 encoding = main_page.encoding if 'charset' in main_page.headers.get('content-type', '').lower() else None
@@ -146,12 +250,12 @@ if __name__ == "__main__":
             for item in info:
                 df = df.append({'TITLE': item['title'].encode('utf-8'),'TOWN': item['town'].encode('utf-8'),'PROVINCE': province_url[0], 'REGION': region[0], 'SURFACE': item['surface'],
                                 'N_ROOMS':item['rooms'],'N_BATHROOMS': item['n_bathrooms'],'PRICE_METER': item['price_meter'],'TOTAL_PRICE': item['total_price'],
-                                'LINK': item['link'].encode('utf-8')}, ignore_index=True)
+                                'LINK': item['link'].encode('utf-8'), 'IMG': item['img']}, ignore_index=True)
             print(df)
             #only header when it is the first time
             if first:
-                df.to_csv("habitaclia_dataset.csv", mode='wb', header=True, index=False)
+                df.to_csv("../dataset/habitaclia_dataset.csv", mode='wb', header=True, index=False)
                 first = False
             else:
-                df.to_csv("habitaclia_dataset.csv", mode='ab', header=False, index=False)
+                df.to_csv("../dataset/habitaclia_dataset.csv", mode='ab', header=False, index=False)
 
